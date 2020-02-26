@@ -21,6 +21,9 @@ Contains Four models:
     GRU_regressor
 
 
+Best Results have come from the regressors. Its not clear
+if the GRU or LSTM have better results
+
 
 
 '''
@@ -223,7 +226,7 @@ class GRU_regressor(nn.Module):
         y_hat = self.Wy(self.hidden).reshape(1)
         return y_hat 
 
-    def train(self,data_lst,epochs = 10,batch_size=32):
+    def train(self,data_lst,epochs = 10,batch_size=32,validation_set = None):
         '''
             The Data is in the list becasue data from diffrent days
             need to be treated differently. Specifically the 
@@ -233,6 +236,14 @@ class GRU_regressor(nn.Module):
         criterion = nn.MSELoss()
         optimizer = torch.optim.Adam(self.parameters())
         loader_lst = [DataLoader(customDataset(data)) for data in data_lst]
+        if validation_set != None:
+            test_loader = DataLoader(customDataset(validation_set))
+            self.hidden = torch.zeros(self.h_size)
+            val_loss = 0
+            for d,t in test_loader:
+                y_hat = self.forward(d)
+                val_loss += criterion(y_hat,t).data
+            print('initial validation loss ',val_loss)
         for epoch in range(epochs):
             total_loss = 0 
             np.random.shuffle(loader_lst)
@@ -253,12 +264,21 @@ class GRU_regressor(nn.Module):
                 loss.backward(retain_graph=True)
                 optimizer.step()
                 optimizer.zero_grad()
-            print('epoch {} loss {}'.format(epoch,total_loss))
+            if validation_set != None:
+                self.hidden = torch.zeros(self.h_size)
+                val_loss = 0
+                for d,t in test_loader:
+                    y_hat = self.forward(d)
+                    val_loss += criterion(y_hat,t).data
+                print('epoch {} train loss {} validation loss {}'.format(epoch,total_loss,val_loss))
+
+            else:
+                print('epoch {} train loss {}'.format(epoch,total_loss))
 
 
 class LSTM_regressor(nn.Module):
     '''
-    Gated recurreny unit that tries predict the difference between the next price and the current
+    Gated recurrent unit that tries predict the difference between the next price and the current
     price
 
 
@@ -298,7 +318,7 @@ class LSTM_regressor(nn.Module):
         y_hat = self.Wy(self.hidden).reshape(1)
         return y_hat 
 
-    def train(self,data_lst,epochs = 10,batch_size=32):
+    def train(self,data_lst,epochs = 10,batch_size=32,validation_set = None):
         '''
             The Data is in the list becasue data from diffrent days
             need to be treated differently. Specifically the 
@@ -308,6 +328,15 @@ class LSTM_regressor(nn.Module):
         criterion = nn.MSELoss()
         optimizer = torch.optim.Adam(self.parameters())
         loader_lst = [DataLoader(customDataset(data)) for data in data_lst]
+        if validation_set != None:
+            test_loader = DataLoader(customDataset(validation_set))
+            self.hidden = torch.zeros(self.h_size)
+            self.cell = torch.zeros(self.h_size)
+            val_loss = 0
+            for d,t in test_loader:
+                y_hat = self.forward(d)
+                val_loss += criterion(y_hat,t).data
+            print('initial validation loss ',val_loss)
         for epoch in range(epochs):
             total_loss = 0 
             np.random.shuffle(loader_lst)
@@ -329,5 +358,14 @@ class LSTM_regressor(nn.Module):
                 loss.backward(retain_graph=True)
                 optimizer.step()
                 optimizer.zero_grad()
-            print('epoch {} loss {}'.format(epoch,total_loss))
+            if validation_set != None:
+                self.hidden = torch.zeros(self.h_size)
+                self.cell = torch.zeros(self.h_size)
+                val_loss = 0
+                for d,t in test_loader:
+                    y_hat = self.forward(d)
+                    val_loss += criterion(y_hat,t).data
+                print('epoch {} train loss {} validation loss {}'.format(epoch,total_loss,val_loss))
 
+            else:
+                print('epoch {} train loss {}'.format(epoch,total_loss))
